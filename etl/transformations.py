@@ -10,5 +10,4 @@ class Transformation(object):
 
 class NoneTransformation(Transformation):
     def transform(self, task, job_config, table):
-        task.logger.info("%s<>" % self.__class__.__name__)
         return table

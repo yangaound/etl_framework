@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import signal
 import sys
-import traceback
 import time
 import os
 import logging
 
 import yaml
 
-from .util import import_string
+from .util import import_cls_string
 
 tasks = list()
 
@@ -107,39 +105,22 @@ class Dispatcher(object):
     def initialize_tasks(self):
         for task_config in self.tasks_config:
             if 'monitor' in self.job_config:
-                monitor_handler_class = import_string(self.job_config['monitor']['handler_class'])
+                monitor_handler_class = import_cls_string(self.job_config['monitor']['handler_class'])
+                monitor_handler = monitor_handler_class()
+            elif 'monitor' in self.task_config:
+                monitor_handler_class = import_cls_string(task_config['monitor']['handler_class'])
                 monitor_handler = monitor_handler_class()
             else:
                 monitor_handler = None
-            extraction_class = import_string(task_config['extraction']['extraction_class'])
+            extraction_class = import_cls_string(task_config['extraction']['extraction_class'])
             extractor = extraction_class()
-            transformation_class = import_string(task_config['transformation']['transformation_class'])
+            transformation_class = import_cls_string(task_config['transformation']['transformation_class'])
             transformer = transformation_class()
-            loading_class = import_string(task_config['loading']['loading_class'])
-            loader = loading_class()
+            writing_class = import_cls_string(task_config['writing']['writing_class'])
+            writing = writing_class()
 
-            task_class = import_string(task_config['task_class'])
-            task = task_class(self, task_config, extractor, transformer, loader, monitor_handler)
+            task_class = import_cls_string(task_config['task_class'])
+            task = task_class(self, task_config, extractor, transformer, writing, monitor_handler)
             tasks.append(task)
             msg = 'Initialize {task_class}<id={id}, group={group}> '.format(**task_config)
             self.err_logger.debug(msg)
-
-
-class DBDispatcher(Dispatcher):
-    err_logger_filename = 'dbrp'
-
-    def initialize_tasks(self):
-        signal.signal(signal.SIGINT, self._terminate)
-        super(DBDispatcher, self).initialize_tasks()
-
-    @staticmethod
-    def _terminate(_, __):
-        for task in tasks:
-            if task.is_alive():
-                msg = "Abnormal Termination pid '{pid}'. Task<id={id}, group={group}>".format(pid=task.pid, **task.config)
-                DBDispatcher.err_logger.error(msg)
-                try:
-                    task.terminate()
-                except:
-                    pass
-        raise SystemExit('Keyboard Interrupt')
