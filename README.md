@@ -1,2 +1,2 @@
 # etl_framework
-extract/transform/loading framework
+extraction/transformation/loading framework
